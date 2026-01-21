@@ -25,6 +25,8 @@ import type {
     DownloadQueueInfo,
 } from "../types/downloads";
 
+import { t } from "../i18n";
+
 /**
  * Format bytes to human-readable size
  */
@@ -107,22 +109,39 @@ const DownloadItemRow: FC<{
 
                 {/* X button to clear finished items */}
                 {(item.status === "completed" || item.status === "error" || item.status === "cancelled") && onClear && (
-                    <DialogButton
-                        onClick={() => onClear(item.id)}
-                        style={{
-                            padding: "0",
-                            width: "20px",
-                            height: "20px",
-                            minWidth: "auto",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            backgroundColor: "transparent",
-                            color: "#666",
-                        }}
-                    >
-                        <FaTimes size={10} />
-                    </DialogButton>
+                    <>
+                        <style>{`
+                            .unifideck-clear-btn {
+                                padding: 0 !important;
+                                width: 24px !important;
+                                height: 24px !important;
+                                min-width: 24px !important;
+                                display: flex !important;
+                                align-items: center !important;
+                                justify-content: center !important;
+                                background-color: transparent !important;
+                                color: #888 !important;
+                                border-radius: 4px !important;
+                                transition: all 0.15s ease !important;
+                            }
+                            .unifideck-clear-btn:hover,
+                            .unifideck-clear-btn:focus,
+                            .unifideck-clear-btn.gpfocus,
+                            .unifideck-clear-btn.Focusable:focus-within {
+                                background-color: rgba(255, 255, 255, 0.15) !important;
+                                color: #fff !important;
+                                outline: 2px solid #1a9fff !important;
+                                outline-offset: 1px !important;
+                            }
+                        `}</style>
+                        <DialogButton
+                            className="unifideck-clear-btn"
+                            onClick={() => onClear(item.id)}
+                            onOKButton={() => onClear(item.id)}
+                        >
+                            <FaTimes size={12} />
+                        </DialogButton>
+                    </>
                 )}
             </div>
 
@@ -133,10 +152,10 @@ const DownloadItemRow: FC<{
                         onClick={() => {
                             showModal(
                                 <ConfirmModal
-                                    strTitle="Confirm Cancellation"
-                                    strDescription={`Are you sure you want to cancel the download for ${item.game_title}?`}
-                                    strOKButtonText="Yes"
-                                    strCancelButtonText="No"
+                                    strTitle={t("downloadsTab.confirmCancelTitle")}
+                                    strDescription={t("downloadsTab.confirmCancelDescription", { game: item.game_title })}
+                                    strOKButtonText={t("downloadsTab.confirmCancelYes")}
+                                    strCancelButtonText={t("downloadsTab.confirmCancelNo")}
                                     bDestructiveWarning={true}
                                     onOK={() => onCancel(item.id)}
                                 />
@@ -150,7 +169,7 @@ const DownloadItemRow: FC<{
                             fontSize: "12px",
                         }}
                     >
-                        <FaTimes size={10} style={{ marginRight: "4px" }} /> Cancel
+                        <FaTimes size={10} style={{ marginRight: "4px" }} /> {t("downloadsTab.confirmCancelNo")}
                     </DialogButton>
                 </div>
             )}
@@ -161,19 +180,19 @@ const DownloadItemRow: FC<{
                     {/* Show phase-specific messages */}
                     {item.download_phase === "extracting" && (
                         <div style={{ fontSize: "12px", color: "#f59e0b", marginBottom: "8px" }}>
-                            {item.phase_message || "Extracting game files..."}
+                            {item.phase_message || t("downloadsTab.phaseExtracting", { game: item.game_title })}
                         </div>
                     )}
                     {item.download_phase === "verifying" && (
                         <div style={{ fontSize: "12px", color: "#4ade80", marginBottom: "8px" }}>
-                            ✓ {item.phase_message || "Verifying installation..."}
+                            ✓ {item.phase_message || t("downloadsTab.phaseVerifying", { game: item.game_title })}
                         </div>
                     )}
 
                     {/* Show "Preparing..." when no real progress yet */}
                     {item.progress_percent === 0 && item.downloaded_bytes === 0 && item.download_phase === "downloading" ? (
                         <div style={{ fontSize: "12px", color: "#888", fontStyle: "italic" }}>
-                            Preparing download...
+                            {t("downloadsTab.preparingDownload")}
                         </div>
                     ) : item.download_phase === "extracting" || item.download_phase === "verifying" ? (
                         /* Animated indeterminate progress bar for extraction/verification */
@@ -202,40 +221,49 @@ const DownloadItemRow: FC<{
                                 }
                             `}</style>
                         </div>
-                    ) : (
-                        <>
-                            {/* Progress bar for downloading */}
-                            <div
-                                style={{
-                                    width: "100%",
-                                    height: "6px",
-                                    backgroundColor: "#333",
-                                    borderRadius: "3px",
-                                    overflow: "hidden",
-                                    marginBottom: "8px",
-                                }}
-                            >
+                    ) : (() => {
+                        // Calculate progress from bytes when available (more accurate than chunk-based %)
+                        // Legendary reports chunk-based progress which can differ significantly from byte progress
+                        const byteProgress = item.total_bytes > 0
+                            ? (item.downloaded_bytes / item.total_bytes) * 100
+                            : item.progress_percent;
+                        const displayProgress = Math.min(byteProgress, 100);
+
+                        return (
+                            <>
+                                {/* Progress bar for downloading */}
                                 <div
                                     style={{
-                                        width: `${item.progress_percent}%`,
-                                        height: "100%",
-                                        backgroundColor: "#1a9fff",
-                                        transition: "width 0.3s ease",
+                                        width: "100%",
+                                        height: "6px",
+                                        backgroundColor: "#333",
+                                        borderRadius: "3px",
+                                        overflow: "hidden",
+                                        marginBottom: "8px",
                                     }}
-                                />
-                            </div>
+                                >
+                                    <div
+                                        style={{
+                                            width: `${displayProgress}%`,
+                                            height: "100%",
+                                            backgroundColor: "#1a9fff",
+                                            transition: "width 0.3s ease",
+                                        }}
+                                    />
+                                </div>
 
-                            {/* Stats row */}
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#888" }}>
-                                <span>{item.progress_percent.toFixed(1)}%</span>
-                                <span>
-                                    {formatBytes(item.downloaded_bytes)} / {formatBytes(item.total_bytes)}
-                                </span>
-                                <span>{item.speed_mbps.toFixed(1)} MB/s</span>
-                                <span>ETA: {formatETA(item.eta_seconds)}</span>
-                            </div>
-                        </>
-                    )}
+                                {/* Stats row */}
+                                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 8px", fontSize: "12px", color: "#888" }}>
+                                    <span>{displayProgress.toFixed(1)}%</span>
+                                    <span>
+                                        {formatBytes(item.downloaded_bytes)} / {formatBytes(item.total_bytes)}
+                                    </span>
+                                    <span>{item.speed_mbps.toFixed(1)} MB/s</span>
+                                    <span>ETA: {formatETA(item.eta_seconds)}</span>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </>
             )}
 
@@ -245,9 +273,9 @@ const DownloadItemRow: FC<{
                     {item.status === "queued" && <FaDownload size={10} style={{ marginRight: "4px" }} />}
                     {item.status === "completed" && <FaCheck size={10} style={{ marginRight: "4px" }} />}
                     {item.status === "error" && <FaExclamationTriangle size={10} style={{ marginRight: "4px" }} />}
-                    <span style={{ textTransform: "capitalize" }}>{item.status}</span>
+                    <span style={{ textTransform: "capitalize" }}>{t(`downloadsTab.status.${item.status}`)}</span>
                     {item.error_message && (
-                        <span style={{ marginLeft: "8px", color: "#888" }}>- {item.error_message}</span>
+                        <span style={{ marginLeft: "8px", color: "#888" }}>- {t(item.error_message)}</span>
                     )}
                 </div>
             )}
@@ -316,15 +344,15 @@ export const DownloadsTab: FC = () => {
 
             if (result.success) {
                 toaster.toast({
-                    title: "Download Cancelled",
-                    body: "The download has been removed from the queue.",
+                    title: t("downloadsTab.toastDownloadCancelledTitle"),
+                    body: t("downloadsTab.toastDownloadCancelledBody"),
                     duration: 3000,
                 });
                 fetchQueueInfo(); // Refresh immediately
             } else {
                 toaster.toast({
-                    title: "Cancel Failed",
-                    body: result.error || "Unknown error",
+                    title: t("downloadsTab.toastCancelFailedTitle"),
+                    body: t("downloadsTab.toastCancelFailedBody", { error: t(result.error || "Unknown error") }),
                     duration: 5000,
                     critical: true,
                 });
@@ -352,10 +380,10 @@ export const DownloadsTab: FC = () => {
 
     if (loading) {
         return (
-            <PanelSection title="DOWNLOADS">
+            <PanelSection title={t("downloadsTab.currentDownload")}>
                 <PanelSectionRow>
-                    <Field label="Loading...">
-                        <span style={{ color: "#888" }}>Fetching download queue...</span>
+                    <Field label={t("downloadsTab.loadingLabel")}>
+                        <span style={{ color: "#888" }}>{t("downloadsTab.loadingMessage")}</span>
                     </Field>
                 </PanelSectionRow>
             </PanelSection>
@@ -370,17 +398,17 @@ export const DownloadsTab: FC = () => {
     return (
         <>
             {/* Current Download Section */}
-            <PanelSection title="CURRENT DOWNLOAD">
+            <PanelSection title={t("downloadsTab.currentDownload")}>
                 {current ? (
                     <DownloadItemRow item={current} isCurrent={true} onCancel={handleCancel} />
                 ) : (
-                    <EmptyState message="No active downloads" />
+                    <EmptyState message={t("downloadsTab.noActiveDownloads")} />
                 )}
             </PanelSection>
 
             {/* Queued Downloads Section */}
             {queued.length > 0 && (
-                <PanelSection title={`QUEUED (${queued.length})`}>
+                <PanelSection title={t("downloadsTab.queuedDownloads", { count: queued.length })}>
                     {queued.map((item) => (
                         <DownloadItemRow
                             key={item.id}
@@ -394,7 +422,7 @@ export const DownloadsTab: FC = () => {
 
             {/* Recently Completed Section */}
             {finished.length > 0 && (
-                <PanelSection title="RECENTLY COMPLETED">
+                <PanelSection title={t("downloadsTab.recentlyCompleted")}>
                     {finished.slice(0, 5).map((item) => (
                         <DownloadItemRow
                             key={item.id}
@@ -410,7 +438,7 @@ export const DownloadsTab: FC = () => {
             {/* Empty state when nothing anywhere */}
             {!hasActiveDownloads && finished.length === 0 && (
                 <PanelSection>
-                    <EmptyState message="No downloads. Install games from your library to see them here." />
+                    <EmptyState message={t("downloadsTab.noDownloads")} />
                 </PanelSection>
             )}
         </>
